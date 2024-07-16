@@ -1,35 +1,42 @@
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::{TcpListener, TcpStream};
 
-fn handle_client(mut stream: TcpStream) {
-    let mut buffer = [0; 1024];
-    stream
-        .read(&mut buffer)
-        .expect("Failed to read from client");
-
-    // this line converts the data in the buffer into a utf8 enccoded string.
-    let request = String::from_utf8_lossy(&buffer[..]);
-    println!("Received requet: {}", request);
-
-    let responce = "Hello, Client".as_bytes();
-
-    stream.write(responce).expect("Failed to write responce");
-}
-
-// Entry Point
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8080").expect("Failed to bind to address");
-    println!("Server listening on 127.0.0.1:8080");
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                std::thread::spawn(|| handle_client(stream));
+async fn handle_client(mut stream: TcpStream) {
+    let mut buffer = [0; 512];
+    loop {
+        match stream.read(&mut buffer).await {
+            Ok(0) => break, // Connection was closed
+            Ok(_) => {
+                // Echo the data back to the client
+                if let Err(e) = stream.write(&buffer).await {
+                    eprintln!("Failed to write to stream: {}", e);
+                    break;
+                }
             }
             Err(e) => {
-                // standard error stream
-                eprintln!("Failed to establish connection : {}", e);
+                eprintln!("Failed to read from stream: {}", e);
+                break;
             }
         }
     }
 }
+
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    let listener = TcpListener::bind("127.0.0.1:7878").await?;
+    println!("Server listening on port 7878");
+
+    loop {
+        match listener.accept().await {
+            Ok((stream, _)) => {
+                tokio::spawn(async move {
+                    handle_client(stream).await;
+                });
+            }
+            Err(e) => {
+                eprintln!("Failed to accept connection: {}", e);
+            }
+        }
+    }
+}
+
