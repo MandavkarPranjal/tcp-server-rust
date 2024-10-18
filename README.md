@@ -8,7 +8,7 @@ To install this project, follow these steps:
 
 1. **Clone the repository:**
     ```sh
-    git clone https://github.com/your-username/tcp-server-rust.git
+    git clone https://github.com/MandavkarPranjal/tcp-server-rust.git
     cd tcp-server-rust
     ```
 
